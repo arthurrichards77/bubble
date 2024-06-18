@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.stats.qmc import PoissonDisk
 
 def temperature(ii):
-    return 0.1*np.exp(-ii/300)
+    return 0.05*np.exp(-ii/300)
 
 def prob_accept(score_new,score,ii):
     return np.exp((score_new-score)/temperature(ii))
@@ -13,6 +13,9 @@ num_dims = 2
 # bubble polytope is Px<=q where q is optimized by point allocation
 P = np.array([[1,0],[0,1],[-1,0],[0,-1]])
 P = np.array([[1,0],[0,1],[-1,0],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]])
+P = np.array([[1,0],[2,1],[2,-1],[-1,0],[-2,1],[-2,-1]])
+P = np.transpose(np.array([np.cos(np.linspace(0,2*np.pi,9)),
+                           np.sin(np.linspace(0,2*np.pi,9))]))
 num_rays = np.size(P,0)
 #print(P)
 #print(num_rays)
@@ -52,7 +55,7 @@ for ii in range(num_obst):
     alloc = np.argmin(diff)
     obst_alloc[alloc] += [ii]
     q[alloc] = min((q[alloc],Pobst[alloc,ii]))
-print(obst_alloc)
+#print(obst_alloc)
 
 def score_func(q):
     # score the polygon by how many eval points are inside
@@ -78,7 +81,7 @@ plt.plot(eval_points[0,points_in],eval_points[1,points_in],'m.')
 #plt.plot([q[0],q[0],-q[2],-q[2],q[0]],[q[1],-q[3],-q[3],q[1],q[1]],'g-')
 
 score_history = [score]
-for ii in range(2000):
+for ii in range(1000):
     # now try a random change
     choose_ray = np.random.choice([rr for rr in range(num_rays) if obst_alloc[rr]])
     #print(choose_ray)
@@ -105,19 +108,19 @@ for ii in range(2000):
     #print(score_new)
     if score_new>score:
         # always accept improvement
-        print('improve',score,score_new)
+        #print('improve',score,score_new)
         q = qnew
         score = score_new
     elif np.random.random()<prob_accept(score_new,score,ii):
         # sometimes accept degradation
-        print('accept',score,score_new)
+        #print('accept',score,score_new)
         q = qnew
         score = score_new
     else:
         # undo change
         obst_alloc[choose_ray].append(closest_obst)
         obst_alloc[other_ray].remove(closest_obst)
-        print('reject',score,score_new)
+        #print('reject',score,score_new)
     score_history.append(score)
 
 _,points_in = score_func(q)
