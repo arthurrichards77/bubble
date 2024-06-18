@@ -63,6 +63,8 @@ def score_func(q):
     points_in = np.all(Peval<=qtiled,axis=0)
     #print(points_in)
     score = sum(points_in)/num_eval
+    # TO DO add the inclusion points as a reward
+    #####
     # add a regularizing term to favour larger q
     score += 0.001*np.sum(q/qmax)
     return(score,points_in)
