@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats.qmc import PoissonDisk
 
+
 def poly_2d_P(n):
     # bubble polytope is Px<=q where q is optimized by point allocation
     P = np.transpose(np.array([np.cos(np.linspace(0,2*np.pi,n)),
                             np.sin(np.linspace(0,2*np.pi,n))]))
     return(P)
-
 
 
 class Bubble:
@@ -41,7 +41,12 @@ class Bubble:
         self.score = None
         self.score_history = []
 
-    def _eval_points_poisson(self, n=3000, radius=0.015):
+    def _eval_points_poisson(self, n=None, radius=None):
+        if radius is None:
+            radius = self.space_size/30.0
+        if n is None:
+            n = int(self.space_size/radius)**self.num_dims
+        print(f'Generating up to {n} Poison disk samples')
         sampler = PoissonDisk(d=self.num_dims, radius=radius)
         return(2*self.space_size*(np.transpose(sampler.random(n))-0.5))
 
@@ -53,7 +58,7 @@ class Bubble:
         print(f'Received {self.num_incl} inclusion points')
         self.qmin = np.max(self._Pincl, axis=1)
         print('qmin',self.qmin)
-        #assert np.all(self._points_in(self._Pincl,self.qmax))
+        assert np.all(self._points_in(self._Pincl,self.qmax))
 
     def set_obstacle_points(self, obstacle_points):
         assert np.size(obstacle_points,0)==self.num_dims
@@ -143,20 +148,20 @@ class Bubble:
             self.score_history.append(self.score)
         print(f'Finished with score {self.score}')
 
-    def plot_2d_result(self):
+    def plot_2d_result(self, point_style='g.'):
         assert self.num_dims==2
         points_in = self._points_in(self._Peval,self.q)
         plt.plot(self.space_size*np.array([-1,1,1,-1,-1]),
                  self.space_size*np.array([-1,-1,1,1,-1]),'b-')
         #plt.plot(self.eval_points[0,:],self.eval_points[1,:],'k.')
-        plt.plot(self.eval_points[0,points_in],self.eval_points[1,points_in],'g.')
+        plt.plot(self.eval_points[0,points_in],self.eval_points[1,points_in],point_style)
         plt.plot(self.obstacle_points[0,:],self.obstacle_points[1,:],'rs')
-        plt.plot(self.include_points[0,:],self.include_points[1,:],'gs')
-        plt.show()
+        plt.plot(self.include_points[0,:],self.include_points[1,:],'bs')
+        #plt.show()
 
     def plot_solve_history(self):
         plt.plot(self.score_history)
-        plt.show()
+        #plt.show()
 
 def run_example():
     P = poly_2d_P(6)
@@ -169,12 +174,14 @@ def run_example():
     bubble.set_include_points(include_points)
     # initialize and plot first solution
     bubble.init()
-    bubble.plot_2d_result()
+    bubble.plot_2d_result(point_style='m+')
     # solve
     bubble.solve()
     # plot
     bubble.plot_2d_result()
+    plt.figure()
     bubble.plot_solve_history()
+    plt.show()
 
 if __name__=='__main__':
     run_example()
