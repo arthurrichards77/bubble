@@ -29,7 +29,7 @@ class Bubble:
         # set of points to be inside the bubble
         self.include_points = None
         self.num_incl = 0
-        #self.qmin = -np.inf(self.num_rays)
+        self.qmin = -np.inf*np.ones_like(self.qmax)
         # set of points to be outside the bubble
         self.obstacle_points = None
         self.num_obst = 0
@@ -41,7 +41,7 @@ class Bubble:
         self.score = None
         self.score_history = []
 
-    def _eval_points_poisson(self, n=1000, radius=0.015):
+    def _eval_points_poisson(self, n=3000, radius=0.015):
         sampler = PoissonDisk(d=self.num_dims, radius=radius)
         return(2*self.space_size*(np.transpose(sampler.random(n))-0.5))
 
@@ -51,7 +51,9 @@ class Bubble:
         self._Pincl = self.P@include_points
         self.num_incl = np.size(include_points,1)
         print(f'Received {self.num_incl} inclusion points')
-        #self.qmin = 
+        self.qmin = np.max(self._Pincl, axis=1)
+        print('qmin',self.qmin)
+        #assert np.all(self._points_in(self._Pincl,self.qmax))
 
     def set_obstacle_points(self, obstacle_points):
         assert np.size(obstacle_points,0)==self.num_dims
@@ -60,15 +62,16 @@ class Bubble:
         self.num_obst = np.size(obstacle_points,1)
         print(f'Received {self.num_obst} obstacle points')
 
-    def _greedy_init(self):
+    def init(self):
         # set q to its biggest useful extent
-        self.q = np.array(self.qmax)
-        # reduce q with a greedy algorithm to exclude all obstacles
+        #self.q = np.array(self.qmin)
+        # enlarge q with a greedy algorithm
         for ii in range(self.num_obst):
-            diff = self.q - self._Pobst[:,ii]
-            alloc = np.argmin(diff)
+            diff = self._Pobst[:,ii] - self.qmin
+            alloc = np.argmax(diff)
             self.obst_alloc[alloc] += [ii]
-            self.q[alloc] = min((self.q[alloc],self._Pobst[alloc,ii]))
+        self.q = np.array([np.min(self._Pobst[rr,self.obst_alloc[rr]],initial=self.qmax[rr]) for rr in range(self.num_rays)])
+        assert np.all(self.q>self.qmin)
 
     def _temperature(self, ii):
         return 0.05*np.exp(-ii/300)
@@ -89,8 +92,7 @@ class Bubble:
         score += 0.001*np.sum(q/self.qmax)
         return score
 
-    def solve(self, num_iters=1000):
-        self._greedy_init()
+    def solve(self, num_iters=2000):
         self.score = self.score_func(self.q)
         self.score_history = [self.score]
         print(f'Initial score is {self.score}')
@@ -119,7 +121,11 @@ class Bubble:
             #print('qtest',qtest)
             score_new = self.score_func(qnew)
             #print(score_new)
-            if score_new>self.score:
+            if np.any(qnew<self.qmin):
+                # discard change that removes inclusion point
+                self.obst_alloc[choose_ray].append(closest_obst)
+                self.obst_alloc[other_ray].remove(closest_obst)
+            elif score_new>self.score:
                 # always accept improvement
                 #print('improve',score,score_new)
                 self.q = qnew
@@ -140,8 +146,9 @@ class Bubble:
     def plot_2d_result(self):
         assert self.num_dims==2
         points_in = self._points_in(self._Peval,self.q)
-        #plt.plot(space_size*[-1,1,1,-1,-1],space_size*[-1,-1,1,1,-1],'b-')
-        plt.plot(self.eval_points[0,:],self.eval_points[1,:],'k.')
+        plt.plot(self.space_size*np.array([-1,1,1,-1,-1]),
+                 self.space_size*np.array([-1,-1,1,1,-1]),'b-')
+        #plt.plot(self.eval_points[0,:],self.eval_points[1,:],'k.')
         plt.plot(self.eval_points[0,points_in],self.eval_points[1,points_in],'g.')
         plt.plot(self.obstacle_points[0,:],self.obstacle_points[1,:],'rs')
         plt.plot(self.include_points[0,:],self.include_points[1,:],'gs')
@@ -160,6 +167,9 @@ def run_example():
     # token points inside
     include_points = np.transpose(np.array([[0,0],[0.1,0],[0,0.1]])) # just the three for now, near the centre
     bubble.set_include_points(include_points)
+    # initialize and plot first solution
+    bubble.init()
+    bubble.plot_2d_result()
     # solve
     bubble.solve()
     # plot
