@@ -1,14 +1,35 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats.qmc import PoissonDisk
-
+from math import atan2
 
 def poly_2d_P(n):
     # bubble polytope is Px<=q where q is optimized by point allocation
-    P = np.transpose(np.array([np.cos(np.linspace(0,2*np.pi,n)),
-                            np.sin(np.linspace(0,2*np.pi,n))]))
+    P = np.transpose(np.array([np.cos(np.linspace(2*np.pi/n,2*np.pi,n)),
+                               np.sin(np.linspace(2*np.pi/n,2*np.pi,n))]))
     return(P)
 
+def plot_poly_2d(P,q,style='g-',tol=1e-6):
+    # plot the polygon x in R^2, Px<=q
+    # check sizes are 2D and compatible
+    assert np.size(P,1) == 2
+    num_rays = np.size(P,0)
+    assert q.shape == (num_rays,)
+    # start by identifying vertices at ray intersections
+    vertices = []
+    for ii in range(num_rays):
+        for jj in range(ii):
+            vertex = np.linalg.solve(P[[ii,jj],:],
+                                     q[[ii,jj]])
+            if np.all(P@vertex <= q*(1.0+tol)):
+                vertices.append(vertex)
+            #print(vertices)
+    centroid = sum(vertices)/len(vertices)
+    def angle_sort(v):
+        return atan2(v[1] - centroid[1], v[0] - centroid[0])
+    vertices.sort(key=angle_sort)
+    plt.plot([v[0] for v in vertices] + [vertices[0][0]],
+             [v[1] for v in vertices] + [vertices[0][1]], style)
 
 class Bubble:
 
@@ -147,8 +168,10 @@ class Bubble:
                 #print('reject',score,score_new)
             self.score_history.append(self.score)
         print(f'Finished with score {self.score}')
+        print('P=',self.P)
+        print('q=',self.q)
 
-    def plot_2d_result(self, point_style='g.'):
+    def plot_2d_result(self, point_style='g.', poly_style='g-'):
         assert self.num_dims==2
         points_in = self._points_in(self._Peval,self.q)
         plt.plot(self.space_size*np.array([-1,1,1,-1,-1]),
@@ -157,6 +180,7 @@ class Bubble:
         plt.plot(self.eval_points[0,points_in],self.eval_points[1,points_in],point_style)
         plt.plot(self.obstacle_points[0,:],self.obstacle_points[1,:],'rs')
         plt.plot(self.include_points[0,:],self.include_points[1,:],'bs')
+        plot_poly_2d(self.P,self.q,poly_style)
         #plt.show()
 
     def plot_solve_history(self):
@@ -174,7 +198,7 @@ def run_example():
     bubble.set_include_points(include_points)
     # initialize and plot first solution
     bubble.init()
-    bubble.plot_2d_result(point_style='m+')
+    bubble.plot_2d_result(point_style='m+',poly_style='m-')
     # solve
     bubble.solve()
     # plot
