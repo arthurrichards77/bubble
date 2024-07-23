@@ -99,6 +99,12 @@ class Bubble:
         self.q = np.array([np.min(self._Pobst[rr,self.obst_alloc[rr]],initial=self.qmax[rr]) for rr in range(self.num_rays)])
         assert np.all(self.q>self.qmin)
 
+    def q_from_alloc(self):
+        # re-calculate q for Px<=q using the obstacle-to-ray allocations in obst_alloc
+        # useful for verification or for recreating bubble from AI allocation
+        q_now = np.array([np.min(self._Pobst[rr,self.obst_alloc[rr]],initial=self.qmax[rr]) for rr in range(self.num_rays)])
+        return q_now
+
     def _temperature(self, ii):
         return 0.05*np.exp(-ii/300)
 
@@ -201,6 +207,9 @@ def run_example():
     bubble.plot_2d_result(point_style='m+',poly_style='m-')
     # solve
     bubble.solve()
+    # verify q is OK
+    assert np.all(bubble.q == bubble.q_from_alloc())
+    print('q test passed OK')
     # plot
     bubble.plot_2d_result()
     plt.figure()
